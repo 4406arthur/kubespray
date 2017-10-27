@@ -6,7 +6,7 @@
       {%- if dns_mode == 'kubedns' -%}
         {{ [ skydns_server ] }}
       {%- elif dns_mode == 'dnsmasq_kubedns' -%}
-        {{ [ dns_server ] }}
+        {{ [ dnsmasq_dns_server ] }}
       {%- endif -%}
 
 - name: set base docker dns facts
@@ -48,12 +48,17 @@
 - name: add system search domains to docker options
   set_fact:
     docker_dns_search_domains: "{{ docker_dns_search_domains | union(system_search_domains.stdout.split(' ')|default([])) | unique }}"
-  when: system_search_domains.stdout != "" 
+  when: system_search_domains.stdout != ""
 
 - name: check number of nameservers
   fail:
-    msg: "Too many nameservers"
-  when: docker_dns_servers|length > 3
+    msg: "Too many nameservers. You can relax this check by set docker_dns_servers_strict=no and we will only use the first 3."
+  when: docker_dns_servers|length > 3 and docker_dns_servers_strict|bool
+
+- name: rtrim number of nameservers to 3
+  set_fact:
+    docker_dns_servers: "{{ docker_dns_servers[0:3] }}"
+  when: docker_dns_servers|length > 3 and not docker_dns_servers_strict|bool
 
 - name: check number of search domains
   fail:
